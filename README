@@ -1,0 +1,10 @@
+- Crear entorno virtual
+python -m venv venv
+- Activarlo
+.\venv\Scripts\activate
+- instalar requerimientos en el entorno
+pip install -r requirement.txt
+
+
+- PARA CONVERTIR A .EXE
+pyinstaller --noconsole --onefile --name "SystemManager" main.py

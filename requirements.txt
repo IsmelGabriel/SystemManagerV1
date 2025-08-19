@@ -1,0 +1,5 @@
+psutil
+PyQt5
+pywin32
+wmi
+py-cpuinfo
