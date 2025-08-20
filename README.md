@@ -40,6 +40,7 @@ pip install -r requirements.txt
 ```
 
 ### 5. Ejecutar la aplicación
+# Es importante que se ejecute con permisos de administrador.
 ```bash
 python main.py
 ```
