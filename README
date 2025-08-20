@@ -1,10 +1,50 @@
-- Crear entorno virtual
+# 🖥️ SystemManager
+
+**SystemManager** es una aplicación de escritorio para Windows que permite **monitorear y gestionar recursos del sistema** de forma sencilla, similar al Administrador de Tareas, pero con una interfaz amigable y opciones rápidas para usuarios.  
+
+El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz gráfica y **psutil** para la monitorización de procesos, memoria, CPU y discos.
+
+---
+
+## ✨ Características
+
+- 📊 **Monitor de sistema en tiempo real**:
+  - Uso de CPU, RAM y disco.
+- ⚙️ **Gestión de procesos**:
+  - Lista de procesos en ejecución.
+  - Organización por nombre, uso de CPU o memoria.
+- 🚀 **Gestión de inicio (Startup)**:
+  - Muestra programas que se inician automaticamente con Windows.
+- 🔒 **Interfaz unificada**:
+  - Todo en una sola ventana con pestañas.
+  - Cambios de pestaña sin abrir nuevas ventanas.
+
+---
+
+## 📦 Instalación
+
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/IsmelGabriel/SystemManagerV1.git
+
+cd SystemManagerV1
+```
+
+### 2. Crear un entorno virtual (opcional pero recomendado)
+```bash
 python -m venv venv
-- Activarlo
-.\venv\Scripts\activate
-- instalar requerimientos en el entorno
-pip install -r requirement.txt
 
+### 3. Activar el entorno virtual
+venv\Scripts\activate
+```
+### 4. Instalar dependencias
 
-- PARA CONVERTIR A .EXE
-pyinstaller --noconsole --onefile --name "SystemManager" main.py
+Asegúrate de tener Python instalado. Luego, instala las dependencias necesarias:
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Ejecutar la aplicación
+```bash
+python main.py
+```
