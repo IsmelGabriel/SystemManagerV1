@@ -33,12 +33,10 @@ cd SystemManagerV1
 ### 2. Crear un entorno virtual (opcional pero recomendado)
 ```bash
 python -m venv venv
-
-### 3. Activar el entorno virtual
 venv\Scripts\activate
 ```
-### 4. Instalar dependencias
 
+### 4. Instalar dependencias
 Asegúrate de tener Python instalado. Luego, instala las dependencias necesarias:
 ```bash
 pip install -r requirements.txt
