@@ -24,11 +24,11 @@ El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz g
 ## 📦 Instalación
 
 ### 1. Clonar el repositorio
-```bash
+´´´bash
 git clone https://github.com/IsmelGabriel/SystemManagerV1.git
 
 cd SystemManagerV1
-```
+´´´
 
 ### 2. Crear un entorno virtual (opcional pero recomendado)
 ```bash
