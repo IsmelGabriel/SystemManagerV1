@@ -75,7 +75,7 @@ class MonitorTab(QWidget):
             f"Arquitectura: {cpu_info['arch']}\n"
             f"Núcleos: {psutil.cpu_count(logical=False)} físicos, {psutil.cpu_count(logical=True)} lógicos\n"
             f"RAM total: {round(psutil.virtual_memory().total / (1024**3), 2)} GB\n"
-            f"Disco: {round(psutil.disk_usage('/').total / (1024**3), 2)} GB\n"
+            f"Disco: {round(psutil.disk_usage('/').total / (1024**3), 2)} GB. (En uso {round(psutil.disk_usage('/').used / (1024**3), 2)} GB)\n"
         )
         return info
     
@@ -99,3 +99,4 @@ class MonitorWindow(QTabWidget):
         self.addTab(MonitorTab(), "Monitor")
         self.addTab(ProcessTab(), "Procesos")
         self.addTab(StartupTab(), "Inicio")
+        # self.addTab(RendimientoTab(), "Rendimiento")
