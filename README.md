@@ -15,9 +15,6 @@ El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz g
   - Organización por nombre, uso de CPU o memoria.
 - 🚀 **Gestión de inicio (Startup)**:
   - Muestra programas que se inician automaticamente con Windows.
-- 🔒 **Interfaz unificada**:
-  - Todo en una sola ventana con pestañas.
-  - Cambios de pestaña sin abrir nuevas ventanas.
 
 ---
 
