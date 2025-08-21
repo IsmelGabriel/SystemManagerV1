@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
 
 class StartupTab(QWidget):
     def __init__(self):
-        super().__init__()  # Inicializar QWidget
+        super().__init__()
 
         self.run_paths = [
             (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", "Usuario actual"),
@@ -28,8 +28,8 @@ class StartupTab(QWidget):
 
         self.refresh()
 
-    # ================== Helpers ==================
     def _set_registry_value(self, root, path, name, value, regtype=winreg.REG_BINARY):
+        """Establece un valor en el registro de Windows."""
         try:
             with winreg.OpenKey(root, path, 0, winreg.KEY_SET_VALUE) as key:
                 winreg.SetValueEx(key, name, 0, regtype, value)
@@ -50,26 +50,33 @@ class StartupTab(QWidget):
             return False
 
     def get_startup_state(self, name, root):
-        """Revisa en StartupApproved si está habilitado/deshabilitado"""
+        """Revisa en StartupApproved si está habilitado/deshabilitado
+        
+        """
         try:
             with winreg.OpenKey(root, self.approved_path, 0, winreg.KEY_READ) as key:
                 value, _ = winreg.QueryValueEx(key, name)
-                return value[0] == 3  # 03 = habilitado, 02 = deshabilitado
+                # Primer byte indica estado: 2 = deshabilitado, 3 = habilitado
+                if value[0] == 2:
+                    return True
+                elif value[0] == 3:
+                    return False
+                else:
+                    return True  # otros estados los tratamos como habilitado
         except FileNotFoundError:
             return True
-        except Exception:
+        except Exception as e:
+            print(f"[WARN] get_startup_state({name}): {e}")
             return True
 
     def set_startup_state(self, name, root, enable=True):
         """Actualiza estado en StartupApproved"""
-        if enable:
-            data = b"\x03\x00\x00\x00\x00\x00\x00\x00"
-        else:
-            data = b"\x02\x00\x00\x00\x00\x00\x00\x00"
-        self._set_registry_value(root, self.approved_path, name, data, winreg.REG_BINARY)
+        data = b"\x02\x00\x00\x00\x00\x00\x00\x00" if enable else b"\x03\x00\x00\x00\x00\x00\x00\x00"
+        return self._set_registry_value(root, self.approved_path, name, data, winreg.REG_BINARY)
 
-    # ================== Listado ==================
+
     def list_items(self):
+        """Lista todos los elementos de inicio desde el registro y la carpeta de inicio."""
         items = []
 
         # Registros Run
@@ -108,8 +115,8 @@ class StartupTab(QWidget):
 
         return items
 
-    # ================== Acciones ==================
     def enable(self, name, path, location, root):
+        """Habilita un elemento de inicio en el registro o carpeta."""
         if location == "Usuario actual":
             run_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         elif location == "Todos los usuarios":
@@ -126,8 +133,9 @@ class StartupTab(QWidget):
             self.set_startup_state(name, root, False)
         self.refresh()
 
-    # ================== GUI ==================
     def refresh(self):
+        """Actualiza la lista de elementos de inicio en el QTreeWidget.
+        """
         self.tree.clear()
         for item in self.list_items():
             row = QTreeWidgetItem([
