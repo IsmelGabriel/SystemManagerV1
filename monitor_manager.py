@@ -1,10 +1,11 @@
 import platform
 import psutil
 import cpuinfo
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QTextEdit, QTabWidget
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QTextEdit, QTabWidget, QPushButton, QMessageBox
 from PyQt5.QtCore import QTimer
 from process_manager import ProcessTab
 from startup_manager import StartupTab
+from system_utils.memory_cleaner import trim_working_set_all
 
 class MonitorTab(QWidget):
     def __init__(self):
@@ -58,6 +59,15 @@ class MonitorTab(QWidget):
         self.specs.setReadOnly(True)
         self.specs.setText(self.get_specs())
         main_layout.addWidget(self.specs)
+        
+        # --- Refrescar memoria ---
+        self.refresh_button = QPushButton("Limpiar memoria")
+        self.refresh_button.clicked.connect(self.refresh_memory)
+        
+        main_layout.addWidget(self.refresh_button)
+        main_layout.addStretch()
+        self.setLayout(main_layout)
+        
 
         # --- Timer para actualizar ---
         self.timer = QTimer()
@@ -87,6 +97,19 @@ class MonitorTab(QWidget):
         self.net_bar.setValue(min(100, int(net_activity % 100)))
         self.disk_bar.setValue(int(psutil.disk_usage('/').percent))
 
+    def refresh_memory(self):
+        """Llama a la función de limpieza de memoria."""
+        before = psutil.virtual_memory().used
+        trim_working_set_all()
+        after = psutil.virtual_memory().used
+        freed = before - after
+        
+        if freed > 0:
+            freed_mb = freed / (1024 * 1024)
+            msg = f"Se liberaron {freed_mb:.2f} MB de memoria."
+        else:
+            msg = "No se liberó memoria."
+        QMessageBox.information(self, "Memory Cleaner", msg)
 
 # ---- Ventana principal con pestañas ----
 class MonitorWindow(QTabWidget):
