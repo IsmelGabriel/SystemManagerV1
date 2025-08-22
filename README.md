@@ -21,6 +21,7 @@ El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz g
 ## 📦 Instalación
 
 ### 1. Clonar el repositorio
+
 ```bash
 git clone https://github.com/IsmelGabriel/SystemManagerV1.git
 
@@ -28,19 +29,24 @@ cd SystemManagerV1
 ```
 
 ### 2. Crear un entorno virtual (opcional pero recomendado)
+
 ```bash
 python -m venv venv
 venv\Scripts\activate
 ```
 
 ### 4. Instalar dependencias
+
 Asegúrate de tener Python instalado. Luego, instala las dependencias necesarias:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 5. Ejecutar la aplicación
-# Es importante que se ejecute con permisos de administrador.
+
+Es importante que se ejecute con permisos de administrador
+
 ```bash
 python main.py
 ```

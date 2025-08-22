@@ -27,15 +27,15 @@ root.title("System Monitor")
 root.overrideredirect(True)  # sin barra de título
 root.attributes("-topmost", True)  # siempre encima
 root.attributes("-alpha", 0.8)  # transparencia
-root.geometry("70x50")
+root.geometry("150x20")
 root.configure(bg="#6902f0")
 
 # --- Etiquetas dinámicas ---
 cpu_label = tk.Label(root, text="CPU: 0%", fg="red", bg="#6902f0", anchor="w", font=("Consolas", 8))
-cpu_label.pack(fill="x", pady=2)
+cpu_label.pack(fill="x", pady=2, side="left")
 
 ram_label = tk.Label(root, text="RAM: 0%", fg="red", bg="#6902f0", anchor="w", font=("Consolas", 8))
-ram_label.pack(fill="x", pady=2)
+ram_label.pack(fill="x", pady=2, side="right")
 
 """activity_label = tk.Label(root, text="Almacenamiento 0%", fg="red", bg="black", anchor="w", font=("Consolas", 8))
 activity_label.pack(fill="x", pady=2)
