@@ -10,31 +10,34 @@ def exit_app():
     root.destroy()
 
 def right_click(event):
-    print("Clic izquierdo detectado")
     menu = tk.Menu(root, tearoff=0)
     menu.add_command(label="Limpiar RAM", command=lambda: limpiar_memoria())
     menu.add_command(label="Cerrar monitor", command=lambda: exit_app())
+    if root.attributes("-topmost"):
+        menu.add_command(label="Llevar atras", command=lambda: topmost_toggle())
+    else:
+        menu.add_command(label="Llevar adelante", command=lambda: topmost_toggle())
     menu.tk_popup(event.x_root, event.y_root)
     
 def move_window(event):
     root.geometry(f'+{event.x_root}+{event.y_root}')
     
-# -------------------
-# Ventana principal
-# -------------------
+def topmost_toggle():
+    root.attributes("-topmost", not root.attributes("-topmost"))
+    
 root = tk.Tk()
 root.title("System Monitor")
 root.overrideredirect(True)  # sin barra de título
-root.attributes("-topmost", True)  # siempre encima
+root.attributes("-topmost", False)  # siempre encima
 root.attributes("-alpha", 0.8)  # transparencia
 root.geometry("150x20")
-root.configure(bg="#6902f0")
+root.configure(bg="#0ab1ff")
 
 # --- Etiquetas dinámicas ---
-cpu_label = tk.Label(root, text="CPU: 0%", fg="red", bg="#6902f0", anchor="w", font=("Consolas", 8))
+cpu_label = tk.Label(root, text="CPU: 0%", fg="red", bg="#0ab1ff", anchor="w", font=("Consolas", 8))
 cpu_label.pack(fill="x", pady=2, side="left")
 
-ram_label = tk.Label(root, text="RAM: 0%", fg="red", bg="#6902f0", anchor="w", font=("Consolas", 8))
+ram_label = tk.Label(root, text="RAM: 0%", fg="red", bg="#0ab1ff", anchor="w", font=("Consolas", 8))
 ram_label.pack(fill="x", pady=2, side="right")
 
 """activity_label = tk.Label(root, text="Almacenamiento 0%", fg="red", bg="black", anchor="w", font=("Consolas", 8))

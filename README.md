@@ -12,7 +12,6 @@ El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz g
   - Uso de CPU, RAM y disco.
 - ⚙️ **Gestión de procesos**:
   - Lista de procesos en ejecución.
-  - Organización por nombre, uso de CPU o memoria.
 - 🚀 **Gestión de inicio (Startup)**:
   - Muestra programas que se inician automaticamente con Windows.
 

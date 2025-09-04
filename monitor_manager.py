@@ -116,7 +116,7 @@ class MonitorWindow(QTabWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SystemManager v1")
-        self.resize(600, 400)
+        self.resize(900, 500)
 
         # Aquí se agregan las pestañas
         self.addTab(MonitorTab(), "Monitor")
