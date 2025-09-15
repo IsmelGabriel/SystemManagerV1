@@ -15,17 +15,16 @@ class MonitorTab(QWidget):
         main_layout = QVBoxLayout(self)
 
         # --- Layout de los cuadros ---
-        grid_layout = QHBoxLayout()
-        self.stats_layout = grid_layout
-        
+        self.stats_layout = QHBoxLayout()
+
         # Crear layouts básicos (CPU, RAM, RED)
         self.create_basic_layouts()
-
+        
         # Crear layouts de discos dinámicamente
         self.disk_layouts = {}
         self.disk_bars = {}
         self.create_disk_layouts()
-        
+
         main_layout.addLayout(self.stats_layout)
 
         # --- Especificaciones ---
@@ -82,24 +81,6 @@ class MonitorTab(QWidget):
             
         return info
     
-    def update_stats(self):
-        """Actualiza las estadísticas incluyendo todos los discos"""
-        self.cpu_bar.setValue(int(psutil.cpu_percent()))
-        self.ram_bar.setValue(int(psutil.virtual_memory().percent))
-        
-        # Actualizar red
-        net_io = psutil.net_io_counters()
-        net_activity = (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024)
-        self.net_bar.setValue(min(100, int(net_activity % 100)))
-        
-        # Actualizar todos los discos
-        for letra, bar in self.disk_bars.items():
-            try:
-                uso = psutil.disk_usage(f"{letra}:")
-                bar.setValue(int(uso.percent))
-            except Exception:
-                continue
-
     def refresh_memory(self):
         """Llama a la función de limpieza de memoria."""
         before = psutil.virtual_memory().used
@@ -169,6 +150,23 @@ class MonitorTab(QWidget):
             except Exception:
                 continue
 
+    def update_stats(self):
+        """Actualiza las estadísticas incluyendo todos los discos"""
+        self.cpu_bar.setValue(int(psutil.cpu_percent()))
+        self.ram_bar.setValue(int(psutil.virtual_memory().percent))
+        
+        # Actualizar red
+        net_io = psutil.net_io_counters()
+        net_activity = (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024)
+        self.net_bar.setValue(min(100, int(net_activity % 100)))
+        
+        # Actualizar todos los discos
+        for letra, bar in self.disk_bars.items():
+            try:
+                uso = psutil.disk_usage(f"{letra}:")
+                bar.setValue(int(uso.percent))
+            except Exception:
+                continue
 
 # ---- Ventana principal con pestañas ----
 class MonitorWindow(QTabWidget):
