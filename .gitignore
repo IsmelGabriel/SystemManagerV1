@@ -2,3 +2,7 @@ __pycache__/*
 *.pyc
 *.pyo
 *.pyd
+
+test.py
+virtual_memory_config.json
+

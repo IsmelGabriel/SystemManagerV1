@@ -6,6 +6,7 @@ from PyQt5.QtCore import QTimer
 from process_manager import ProcessTab
 from startup_manager import StartupTab
 from system_utils.memory_cleaner import trim_working_set_all
+from optimizer_manager import OptimizerTab
 
 class MonitorTab(QWidget):
     def __init__(self):
@@ -180,3 +181,4 @@ class MonitorWindow(QTabWidget):
         self.addTab(ProcessTab(), "Procesos")
         self.addTab(StartupTab(), "Inicio")
         # self.addTab(RendimientoTab(), "Rendimiento")
+        self.addTab(OptimizerTab(), "Optimización")
