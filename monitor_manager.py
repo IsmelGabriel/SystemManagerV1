@@ -3,9 +3,11 @@ import psutil
 import cpuinfo
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QTextEdit, QTabWidget, QPushButton, QMessageBox
 from PyQt5.QtCore import QTimer
+from system_utils.memory_cleaner import trim_working_set_all
+
+# Importar otras pestañas
 from process_manager import ProcessTab
 from startup_manager import StartupTab
-from system_utils.memory_cleaner import trim_working_set_all
 from optimizer_manager import OptimizerTab
 
 class MonitorTab(QWidget):

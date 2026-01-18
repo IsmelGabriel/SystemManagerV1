@@ -5,14 +5,15 @@ import subprocess
 import os
 from typing import Tuple
 
-# --- Forzar ejecución como administrador ---
 def run_as_admin():
+    """
+    Ejecuta el programa con privilegios de administrador en windows
+    """
     try:
         is_admin = ctypes.windll.shell32.IsUserAnAdmin()
     except:
         is_admin = False
     if not is_admin:
-        # Relanza el script con privilegios elevados
         ctypes.windll.shell32.ShellExecuteW(
             None, "runas", sys.executable, " ".join(sys.argv), None, 1
         )
@@ -75,17 +76,3 @@ def run_emptystandby(empty_tool_path: str) -> Tuple[bool, str]:
         return False, f"Error al ejecutar la herramienta: {e}"
     except Exception as e:
         return False, str(e)
-
-# ---------------------------
-# Uso del script
-# ---------------------------
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-ruta_exe = os.path.join(root_dir, "assets", "EmptyStandbyList.exe")
-
-print(f"Ejecutando desde: {ruta_exe}")
-
-if not os.path.isfile(ruta_exe):
-    print("❌ No se encontró el ejecutable en la ruta indicada.")
-else:
-    ok, mensaje = run_emptystandby(ruta_exe)
-    print(mensaje)
