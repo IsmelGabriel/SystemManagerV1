@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QMenu, QAction
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QMenu, QAction, QMessageBox
 from PyQt5.QtCore import QTimer, Qt
+from ctypes import wintypes
 import psutil
 import ctypes
-from ctypes import wintypes
 import win32process, win32gui
 import os
 import subprocess
@@ -156,7 +156,7 @@ class ProcessTab(QWidget):
             p = psutil.Process(pid)
             p.terminate()
         except Exception as e:
-            print(f"[ERROR] terminate_process: {e}")
+            QMessageBox.critical(self, "Error", f"No se pudo finalizar el proceso")
 
     def show_properties(self, exe_path):
         try:
@@ -165,4 +165,4 @@ class ProcessTab(QWidget):
                 shell=True
             )
         except Exception as e:
-            print(f"[ERROR] show_properties: {e}")
+            QMessageBox.critical(self, "Error", f"No se pudieron mostrar las propiedades")

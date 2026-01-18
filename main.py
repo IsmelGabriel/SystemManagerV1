@@ -17,7 +17,8 @@ def run_as_admin():
                 None, "runas", sys.executable, " ".join(sys.argv), None, 1
             )
         except Exception as e:
-            print(f"No se pudo solicitar permisos de administrador: {e}")
+            message = f"No se pudo obtener privilegios de administrador: {e}"
+            QMessageBox.critical(None, "Error", message)
         sys.exit()
 
 def open_monitor_ui():
@@ -26,7 +27,7 @@ def open_monitor_ui():
         subprocess.Popen(["python", "monitor_ui.py"])
     except Exception as e:
         print(f"Error al abrir monitor_ui.py: {e}")
-        QMessageBox.critical(None, "Error", f"No se pudo abrir la interfaz: {e}")   
+        QMessageBox.critical(None, "Error", f"No se pudo abrir la interfaz")   
 
 if __name__ == "__main__":
     run_as_admin()

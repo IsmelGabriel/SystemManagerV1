@@ -6,7 +6,7 @@ import webbrowser
 import shlex
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QMenu, QAction
+    QMenu, QAction, QMessageBox
 )
 from PyQt5.QtCore import Qt
 
@@ -44,7 +44,7 @@ class StartupTab(QWidget):
                 winreg.SetValueEx(key, name, 0, regtype, value)
                 return True
         except Exception as e:
-            print(f"[ERROR] set_registry_value: {e}")
+            QMessageBox.critical(self, "Error", f"No se pudo modificar el registro: {e}")
             return False
 
     def get_startup_state(self, name, root):
@@ -60,7 +60,7 @@ class StartupTab(QWidget):
         except FileNotFoundError:
             return True
         except Exception as e:
-            print(f"[WARN] get_startup_state({name}): {e}")
+            QMessageBox.critical(self, "Error", f"No se pudo leer el estado de inicio: {e}")
             return True
 
 
@@ -111,7 +111,7 @@ class StartupTab(QWidget):
                         "root": None
                     })
         except Exception as e:
-            print(f"[WARN] get_scheduled_tasks: {e}")
+            QMessageBox.critical(self, "Error", f"No se pudieron obtener las tareas programadas: {e}")
         return tasks
 
     @staticmethod

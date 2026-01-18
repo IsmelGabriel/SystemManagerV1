@@ -22,9 +22,9 @@ class OptimizerTab(QWidget):
         self.log.setPlaceholderText("Registros de optimización...")
 
         # Botones principales
-        btn_temp = QPushButton("🧹 Limpiar temporales")
-        btn_mem = QPushButton("💾 Ajustar memoria virtual")
-        btn_recycle = QPushButton("🗑️ Vaciar papelera")
+        btn_temp = QPushButton("Limpiar archivos temporales")
+        btn_mem = QPushButton("Ajustar memoria virtual")
+        btn_recycle = QPushButton("Vaciar papelera")
 
         btn_temp.clicked.connect(self.clean_temp_files)
         btn_mem.clicked.connect(self.adjust_virtual_memory)
