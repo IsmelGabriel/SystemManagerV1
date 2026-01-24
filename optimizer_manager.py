@@ -203,25 +203,32 @@ class OptimizerTab(QWidget):
     # -------------------------------
     def clean_recycle_bin(self):
         try:
+            # Primero verificar si hay elementos en la papelera
             ps_script = r"""
-            try {
-                $drives = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root
-                foreach ($d in $drives) {
-                    try {
-                        Clear-RecycleBin -DriveLetter $d[0] -Force -ErrorAction Stop
-                    } catch {
-                        # Ignorar errores en discos sin papelera
-                    }
-                }
-            } catch {
-                # Ignorar errores globales
-            }
+            $shell = New-Object -ComObject Shell.Application
+            $recycleBin = $shell.NameSpace(10)
+            $itemCount = $recycleBin.Items().Count
+            Write-Output $itemCount
             """
-            subprocess.run(
-                ["powershell", "-Command", ps_script],
-                shell=True, capture_output=True, text=True, encoding="utf-8"
+            result = subprocess.run(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+                capture_output=True, text=True, encoding="utf-8"
             )
-            self.log_message("Papelera de reciclaje vaciada correctamente en todas las unidades.")
+            
+            item_count = result.stdout.strip()
+            
+            if item_count == "0":
+                self.log_message("La papelera de reciclaje ya está vacía.")
+                return
+            
+            # Vaciar la papelera
+            result = subprocess.run(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-Command", 
+                 "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue"],
+                capture_output=True, text=True, encoding="utf-8"
+            )
+            
+            self.log_message(f"Papelera de reciclaje vaciada correctamente ({item_count} elementos eliminados).")
         except Exception as e:
             self.log_message(f"Error vaciando papelera: {e}")
 
