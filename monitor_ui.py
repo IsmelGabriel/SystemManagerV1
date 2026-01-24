@@ -3,15 +3,16 @@ from tkinter import messagebox
 import psutil
 import threading
 import time
+import subprocess
 from system_utils.memory_cleaner import trim_working_set_all
 
 def exit_app():
-    print("Saliendo...")
     root.destroy()
 
 def right_click(event):
     menu = tk.Menu(root, tearoff=0)
     menu.add_command(label="Limpiar RAM", command=lambda: limpiar_memoria())
+    menu.add_command(label="Limpiar papelera", command=lambda: limpiar_papelera())
     menu.add_command(label="Cerrar monitor", command=lambda: exit_app())
     if root.attributes("-topmost"):
         menu.add_command(label="Llevar atras", command=lambda: topmost_toggle())
@@ -82,6 +83,38 @@ def actualizar_labels():
         # activity_label.config(text=f"Almacenamiento: {disk:.1f}%")
 
         time.sleep(1)
+        
+def limpiar_papelera():
+    """Vacía la papelera de reciclaje desde el monitor"""
+    try:
+        # Verificar si hay elementos
+        ps_script = r"""
+        $shell = New-Object -ComObject Shell.Application
+        $recycleBin = $shell.NameSpace(10)
+        $itemCount = $recycleBin.Items().Count
+        Write-Output $itemCount
+        """
+        result = subprocess.run(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        
+        item_count = result.stdout.strip()
+        
+        if item_count == "0":
+            messagebox.showinfo("Papelera", "La papelera de reciclaje ya está vacía.")
+            return
+        
+        # Vaciar la papelera
+        subprocess.run(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-Command", 
+             "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        
+        messagebox.showinfo("Papelera", f"Papelera vaciada correctamente ({item_count} elementos eliminados).")
+    except Exception as e:
+        messagebox.showerror("Error", f"Error vaciando papelera: {e}")
 
 # --- Hilo aparte para refrescar ---
 threading.Thread(target=actualizar_labels, daemon=True).start()
