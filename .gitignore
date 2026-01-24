@@ -4,6 +4,7 @@ __pycache__/*
 *.pyd
 .venv/
 env/
+.vscode/
 test.py
 virtual_memory_config.json
 
