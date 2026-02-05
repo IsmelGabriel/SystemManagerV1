@@ -1,46 +1,61 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QMenu, QAction, QMessageBox
-from PyQt5.QtCore import QTimer, Qt
-from ctypes import wintypes
-import psutil
-import ctypes
-import win32process, win32gui
+"""Módulo para la gestión de procesos en una interfaz PyQt5."""
 import os
+from ctypes import wintypes
+import ctypes
 import subprocess
+# pylint: disable=no-name-in-module
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
+QTreeWidgetItem, QMenu, QAction, QMessageBox)
+from PyQt5.QtCore import QTimer, Qt
+import psutil
+import win32process
+import win32gui
 
 user32 = ctypes.windll.user32
 
 def get_foreground_pid():
+    """Obtiene el PID del proceso que tiene la ventana en primer plano."""
     hwnd = user32.GetForegroundWindow()
     pid = wintypes.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
     return pid.value
 
 def has_visible_window(pid):
+    """Determina si un proceso tiene una ventana visible."""
     def callback(hwnd, windows):
+        # pylint: disable=c-extension-no-member
         if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd):
             _, win_pid = win32process.GetWindowThreadProcessId(hwnd)
             if win_pid == pid:
                 windows.append(hwnd)
         return True
     windows = []
+    # pylint: disable=c-extension-no-member
     win32gui.EnumWindows(callback, windows)
     return len(windows) > 0
 
 def classify_process(proc, foreground_pid):
+    """Clasifica un proceso como 'Aplicación', 'Segundo plano' o 'Servicio'."""
     try:
-        if proc.username() in ["NT AUTHORITY\\SYSTEM", "NT AUTHORITY\\LOCAL SERVICE", "NT AUTHORITY\\NETWORK SERVICE"]:
+        if proc.username() in [
+            "NT AUTHORITY\\SYSTEM",
+            "NT AUTHORITY\\LOCAL SERVICE",
+            "NT AUTHORITY\\NETWORK SERVICE"
+        ]:
             return "Servicio"
         if has_visible_window(proc.pid):
             return "Aplicación"
         return "Segundo plano"
-    except:
+    # pylint: disable=broad-exception-caught
+    except Exception:
         return "Desconocido"
 
 
 class ProcessTab(QWidget):
+    """Pestaña de gestión de procesos."""
     def __init__(self):
         super().__init__()
-        
+
         layout = QVBoxLayout(self)
 
         self.tree = QTreeWidget()
@@ -73,6 +88,7 @@ class ProcessTab(QWidget):
         self.timer.start(1500)
 
     def update_processes(self):
+        """Actualiza la lista de procesos."""
         current_pids = set()
         foreground_pid = get_foreground_pid()
 
@@ -126,6 +142,7 @@ class ProcessTab(QWidget):
         self.tree.expandAll()
 
     def open_context_menu(self, pos):
+        """Abre el menú contextual para un proceso."""
         item = self.tree.itemAt(pos)
         if not item or not item.parent():  # ignorar categorías
             return
@@ -152,17 +169,22 @@ class ProcessTab(QWidget):
             menu.exec_(viewport.mapToGlobal(pos))
 
     def terminate_process(self, pid):
+        """Finaliza un proceso dado su PID."""
         try:
             p = psutil.Process(pid)
             p.terminate()
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo finalizar el proceso")
+        # pylint: disable=broad-exception-caught
+        except Exception:
+            QMessageBox.critical(self, "Error", "No se pudo finalizar el proceso")
 
     def show_properties(self, exe_path):
+        """Muestra las propiedades del ejecutable dado su ruta."""
         try:
+            # pylint: disable=subprocess-run-check
             subprocess.run(
                 ["rundll32.exe", "shell32.dll,ShellExec_RunDLL", exe_path],
                 shell=True
             )
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudieron mostrar las propiedades")
+        # pylint: disable=broad-exception-caught
+        except Exception:
+            QMessageBox.critical(self, "Error", "No se pudieron mostrar las propiedades")

@@ -1,18 +1,22 @@
+"""optimizer_manager.py"""
 import os
 import json
-import psutil
 import tempfile
 import subprocess
 import shutil
+import psutil
+# pylint: disable=no-name-in-module
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QTextEdit, QMessageBox,
     QInputDialog, QDialog, QFormLayout, QSpinBox, QLabel, QDialogButtonBox
 )
-from PyQt5.QtCore import Qt
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "virtual_memory_config.json")
+CONFIG_FILE = os.path.join(
+    os.path.dirname(__file__), "virtual_memory_config.json"
+    )
 
 class OptimizerTab(QWidget):
+    """Pestaña de optimización del sistema."""
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
@@ -38,16 +42,14 @@ class OptimizerTab(QWidget):
         # Cargar configuración previa si existe
         self.last_config = self.load_config()
 
-    # -------------------------------
-    # Utilidad: logs
-    # -------------------------------
     def log_message(self, message):
+        """Agrega un mensaje al log."""
         self.log.append(f"[+] {message}")
 
-    # -------------------------------
-    # Limpieza de temporales
-    # -------------------------------
     def clean_temp_files(self):
+        """
+        Limpieza de temporales
+        """
         temp_dirs = [
             tempfile.gettempdir(),
             r"C:\Windows\Temp",
@@ -64,25 +66,30 @@ class OptimizerTab(QWidget):
                         try:
                             os.remove(os.path.join(root, f))
                             total_deleted += 1
-                        except:
+                        # pylint: disable=broad-exception-caught
+                        except Exception:
                             total_failed += 1
                     for d in dirs:
                         path = os.path.join(root, d)
                         try:
                             shutil.rmtree(path, ignore_errors=True)
-                        except:
+                        # pylint: disable=broad-exception-caught
+                        except Exception:
                             total_failed += 1
 
         self.log_message(f"Archivos temporales eliminados: {total_deleted}")
         if total_failed > 0:
-            self.log_message(f"No se pudieron eliminar {total_failed} archivos o carpetas (en uso).")
+            self.log_message(
+                f"No se pudieron eliminar {total_failed}"
+                + " archivos o carpetas (en uso)."
+                )
 
-
-    # -------------------------------
-    # Mostrar estado actual de memoria virtual
-    # -------------------------------
     def show_current_virtual_memory(self):
+        """
+        Mostrar estado actual de memoria virtual
+        """
         try:
+            # pylint: disable=subprocess-run-check
             result = subprocess.run(
                 ["wmic", "pagefileset", "list", "/format:list"],
                 shell=True, capture_output=True, text=True, encoding="utf-8"
@@ -94,14 +101,19 @@ class OptimizerTab(QWidget):
                     if line.strip():
                         self.log.append(f"    {line.strip()}")
             else:
-                self.log_message("No se pudo obtener información de memoria virtual.")
+                self.log_message(
+                    "No se pudo obtener información de memoria virtual."
+                    )
+        # pylint: disable=broad-exception-caught
         except Exception as e:
             self.log_message(f"Error mostrando memoria virtual actual: {e}")
 
-    # -------------------------------
-    # Ajuste de memoria virtual
-    # -------------------------------
     def adjust_virtual_memory(self):
+        """
+        Ajuste de memoria virtual del sistema
+        """
+
+        # pylint: disable=broad-exception-caught
         try:
             # Mostrar configuración actual primero
             self.show_current_virtual_memory()
@@ -119,17 +131,24 @@ class OptimizerTab(QWidget):
 
             # --- MODO AUTOMÁTICO ---
             if "Automático" in modo:
+                # pylint: disable=subprocess-run-check
                 subprocess.run([
                     "wmic", "computersystem", "where", "name='%computername%'",
                     "set", "AutomaticManagedPagefile=True"
                 ], shell=True)
-                self.log_message("Memoria virtual configurada en modo automático.")
+                self.log_message(
+                    "Memoria virtual configurada en modo automático."
+                    )
                 return
 
             # --- MODO MANUAL ---
-            drives = [d.device for d in psutil.disk_partitions() if 'fixed' in d.opts.lower()]
+            drives = [
+                d.device for d in psutil.disk_partitions() if 'fixed' in d.opts.lower()
+                ]
             if not drives:
-                QMessageBox.warning(self, "Error", "No se detectaron discos fijos.")
+                QMessageBox.warning(
+                    self, "Error", "No se detectaron discos fijos."
+                    )
                 return
 
             dialog = QDialog(self)
@@ -168,6 +187,7 @@ class OptimizerTab(QWidget):
                 return
 
             # Desactivar gestión automática
+            # pylint: disable=subprocess-run-check
             subprocess.run([
                 "wmic", "computersystem", "where", "name='%computername%'",
                 "set", "AutomaticManagedPagefile=False"
@@ -181,16 +201,23 @@ class OptimizerTab(QWidget):
                 free_space_mb = psutil.disk_usage(drive_letter + ":\\").free // (1024 * 1024)
 
                 if free_space_mb < maximo + 500:
-                    self.log_message(f"[AVISO] Espacio insuficiente en {drive_letter}:, ajuste no aplicado.")
+                    self.log_message(
+                        f"[AVISO] Espacio insuficiente en {drive_letter}:,"
+                        + " ajuste no aplicado."
+                        )
                     continue
 
+                #  pylint: disable=subprocess-run-check
                 subprocess.run([
                     "wmic", "pagefileset", "where", f"name='{drive_letter}\\\\pagefile.sys'",
                     "set", f"InitialSize={inicial},MaximumSize={maximo}"
                 ], shell=True)
 
                 new_config[drive_letter] = {"min": inicial, "max": maximo}
-                self.log_message(f"Memoria virtual ajustada en {drive_letter}: {inicial}MB → {maximo}MB")
+                self.log_message(
+                    f"Memoria virtual ajustada en {drive_letter}:"
+                    + f" {inicial}MB → {maximo}MB"
+                    )
 
             # Guardar configuración
             self.save_config(new_config)
@@ -198,10 +225,8 @@ class OptimizerTab(QWidget):
         except Exception as e:
             self.log_message(f"Error ajustando memoria virtual: {e}")
 
-    # -------------------------------
-    # Vaciar papelera
-    # -------------------------------
     def clean_recycle_bin(self):
+        """Vacía la papelera de reciclaje."""
         try:
             # Primero verificar si hay elementos en la papelera
             ps_script = r"""
@@ -210,47 +235,53 @@ class OptimizerTab(QWidget):
             $itemCount = $recycleBin.Items().Count
             Write-Output $itemCount
             """
+            # pylint: disable=subprocess-run-check
             result = subprocess.run(
                 ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
                 capture_output=True, text=True, encoding="utf-8"
             )
-            
+
             item_count = result.stdout.strip()
-            
+
             if item_count == "0":
                 self.log_message("La papelera de reciclaje ya está vacía.")
                 return
-            
+
             # Vaciar la papelera
+            # pylint: disable=subprocess-run-check
             result = subprocess.run(
-                ["powershell", "-ExecutionPolicy", "Bypass", "-Command", 
-                 "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue"],
+                ["powershell", "-ExecutionPolicy", "Bypass", "-Command",
+                "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue"],
                 capture_output=True, text=True, encoding="utf-8"
             )
-            
-            self.log_message(f"Papelera de reciclaje vaciada correctamente ({item_count} elementos eliminados).")
+
+            self.log_message(
+                f"Papelera de reciclaje vaciada correctamente ({item_count}"
+                + " elementos eliminados)."
+                )
+        # pylint: disable=broad-exception-caught
         except Exception as e:
             self.log_message(f"Error vaciando papelera: {e}")
 
-
-    # -------------------------------
-    # Configuración persistente
-    # -------------------------------
     def load_config(self):
         """Carga configuración previa de virtual_memory_config.json"""
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except:
+            # pylint: disable=broad-exception-caught
+            except Exception:
                 return {}
         return {}
 
     def save_config(self, data):
         """Guarda nueva configuración de memoria virtual"""
+
+        # pylint: disable=broad-exception-caught
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
             self.log_message("Configuración guardada correctamente.")
+        # pylint: disable=broad-exception-caught
         except Exception as e:
             self.log_message(f"Error guardando configuración: {e}")

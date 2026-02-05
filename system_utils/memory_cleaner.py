@@ -1,17 +1,19 @@
+"""memory_cleaner.py"""
+import os
 import ctypes
 import sys
-import psutil
 import subprocess
-import os
 from typing import Tuple
+import psutil
 
 def run_as_admin():
     """
-    Ejecuta el programa con privilegios de administrador en windows
+    Ejecuta el programa con privilegios de administrador en Windows
     """
     try:
         is_admin = ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+    # pylint: disable=broad-exception-caught
+    except Exception:
         is_admin = False
     if not is_admin:
         ctypes.windll.shell32.ShellExecuteW(
@@ -21,15 +23,17 @@ def run_as_admin():
 
 run_as_admin()
 
-
 def trim_working_set_all():
     """
     Recorta el working set de todos los procesos posibles.
     Retorna (ok, mensaje) con el resultado del barrido.
     """
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    # pylint: disable=invalid-name
     SetProcessWorkingSetSize = kernel32.SetProcessWorkingSetSize
-    SetProcessWorkingSetSize.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
+    SetProcessWorkingSetSize.argtypes = [
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t
+        ]
     SetProcessWorkingSetSize.restype = ctypes.c_int
 
     # Constantes para permisos completos en el proceso
@@ -43,13 +47,17 @@ def trim_working_set_all():
         pid = proc.info['pid']
         total += 1
         try:
-            hproc = ctypes.windll.kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, pid)
+            hproc = ctypes.windll.kernel32.OpenProcess(
+                PROCESS_ALL_ACCESS, False, pid
+                )
             if not hproc:
                 failed += 1
                 continue
 
             # (-1, -1) => recorte automático del sistema
-            result = SetProcessWorkingSetSize(hproc, ctypes.c_size_t(-1), ctypes.c_size_t(-1))
+            result = SetProcessWorkingSetSize(
+                hproc, ctypes.c_size_t(-1), ctypes.c_size_t(-1)
+                )
             ctypes.windll.kernel32.CloseHandle(hproc)
 
             if result != 0:
@@ -67,6 +75,7 @@ def trim_working_set_all():
 
 # --- Opción B: usar EmptyStandbyList.exe ---
 def run_emptystandby(empty_tool_path: str) -> Tuple[bool, str]:
+    """Ejecuta EmptyStandbyList.exe para limpiar la memoria standby."""
     if not os.path.isfile(empty_tool_path):
         return False, "No se encontró EmptyStandbyList.exe en la ruta indicada."
     try:
@@ -74,5 +83,6 @@ def run_emptystandby(empty_tool_path: str) -> Tuple[bool, str]:
         return True, "Se ejecutó EmptyStandbyList.exe correctamente."
     except subprocess.CalledProcessError as e:
         return False, f"Error al ejecutar la herramienta: {e}"
+    # pylint: disable=broad-exception-caught
     except Exception as e:
         return False, str(e)

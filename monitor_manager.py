@@ -1,7 +1,15 @@
+"""
+monitor_manager.py
+"""
 import platform
 import psutil
 import cpuinfo
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QTextEdit, QTabWidget, QPushButton, QMessageBox
+# pylint: disable=no-name-in-module
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QProgressBar, QTextEdit, QTabWidget, QPushButton,
+    QMessageBox)
+
 from PyQt5.QtCore import QTimer
 from system_utils.memory_cleaner import trim_working_set_all
 
@@ -11,9 +19,10 @@ from startup_manager import StartupTab
 from optimizer_manager import OptimizerTab
 
 class MonitorTab(QWidget):
+    """Pestaña de monitorización del sistema."""
     def __init__(self):
         super().__init__()
-        
+
         # --- Layout general ---
         main_layout = QVBoxLayout(self)
 
@@ -22,7 +31,7 @@ class MonitorTab(QWidget):
 
         # Crear layouts básicos (CPU, RAM, RED)
         self.create_basic_layouts()
-        
+
         # Crear layouts de discos dinámicamente
         self.disk_layouts = {}
         self.disk_bars = {}
@@ -35,25 +44,30 @@ class MonitorTab(QWidget):
         self.specs.setReadOnly(True)
         self.specs.setText(self.get_specs())
         main_layout.addWidget(self.specs)
-        
+
         # --- Refrescar memoria ---
         self.refresh_button = QPushButton("Limpiar memoria")
         self.refresh_button.clicked.connect(self.refresh_memory)
-        
+
         main_layout.addWidget(self.refresh_button)
         main_layout.addStretch()
         self.setLayout(main_layout)
-        
 
         # --- Timer para actualizar ---
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_stats)
         self.timer.start(1000)
-        
+
     def get_specs(self):
+        """Obtiene las especificaciones del sistema."""
         cpu_info = cpuinfo.get_cpu_info()
         discos = psutil.disk_partitions()
-        
+
+        nuc_fisicos = psutil.cpu_count(logical=False)
+        nuc_logicos = psutil.cpu_count(logical=True)
+
+        ram_total_gb = round(psutil.virtual_memory().total / (1024**3), 2)
+
         info = (
             f"Sistema: {platform.system()} {platform.release()}\n"
             f"Versión: {platform.version()}\n"
@@ -61,10 +75,10 @@ class MonitorTab(QWidget):
             f"Detalles del CPU: {platform.processor()}\n"
             f"Procesador: {cpu_info['brand_raw']}\n"
             f"Arquitectura: {cpu_info['arch']}\n"
-            f"Núcleos: {psutil.cpu_count(logical=False)} físicos, {psutil.cpu_count(logical=True)} lógicos\n"
-            f"RAM total: {round(psutil.virtual_memory().total / (1024**3), 2)} GB\n"
+            f"Núcleos: {nuc_fisicos} físicos / {nuc_logicos} lógicos\n"
+            f"RAM disponible: {ram_total_gb} GB\n"
         )
-        
+
         discos_info = []
         for disco in discos:
             try:
@@ -76,21 +90,22 @@ class MonitorTab(QWidget):
                         f"Disco {disco.device.split(':')[0]}: {total_gb} GB "
                         f"(En uso {usado_gb} GB)"
                     )
+            # pylint: disable=broad-exception-caught
             except Exception:
                 continue
-            
+
         if discos_info:
             info += "\nDiscos detectados:\n" + "\n".join(discos_info) + "\n"
-            
+
         return info
-    
+
     def refresh_memory(self):
         """Llama a la función de limpieza de memoria."""
         before = psutil.virtual_memory().used
         trim_working_set_all()
         after = psutil.virtual_memory().used
         freed = before - after
-        
+
         if freed > 0:
             freed_mb = freed / (1024 * 1024)
             msg = f"Se liberaron {freed_mb:.2f} MB de memoria."
@@ -129,27 +144,28 @@ class MonitorTab(QWidget):
     def create_disk_layouts(self):
         """Crea layouts dinámicamente para cada disco"""
         discos = psutil.disk_partitions()
-        
+
         for disco in discos:
             try:
                 if 'fixed' in disco.opts:
                     letra = disco.device.split(':')[0]
-                    
+
                     # Crear elementos para el disco
                     label = QLabel(f"Disco {letra}")
                     bar = QProgressBar()
-                    
+
                     # Crear layout para el disco
                     disk_box = QVBoxLayout()
                     disk_box.addWidget(label)
                     disk_box.addWidget(bar)
-                    
+
                     # Guardar referencias
                     self.disk_layouts[letra] = disk_box
                     self.disk_bars[letra] = bar
-                    
+
                     # Agregar al layout principal
                     self.stats_layout.addLayout(disk_box)
+            # pylint: disable=broad-exception-caught
             except Exception:
                 continue
 
@@ -157,22 +173,24 @@ class MonitorTab(QWidget):
         """Actualiza las estadísticas incluyendo todos los discos"""
         self.cpu_bar.setValue(int(psutil.cpu_percent()))
         self.ram_bar.setValue(int(psutil.virtual_memory().percent))
-        
+
         # Actualizar red
         net_io = psutil.net_io_counters()
         net_activity = (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024)
         self.net_bar.setValue(min(100, int(net_activity % 100)))
-        
+
         # Actualizar todos los discos
         for letra, bar in self.disk_bars.items():
             try:
                 uso = psutil.disk_usage(f"{letra}:")
                 bar.setValue(int(uso.percent))
+            # pylint: disable=broad-exception-caught
             except Exception:
                 continue
 
 # ---- Ventana principal con pestañas ----
 class MonitorWindow(QTabWidget):
+    """Ventana principal con pestañas."""
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SystemManager v1")

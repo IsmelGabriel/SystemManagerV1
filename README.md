@@ -1,8 +1,8 @@
 # 🖥️ SystemManager
 
-**SystemManager** es una aplicación de escritorio para Windows que permite **monitorear y gestionar recursos del sistema** de forma sencilla, similar al Administrador de Tareas, pero con una interfaz amigable y opciones rápidas para usuarios.  
+**SystemManager** es una aplicación de escritorio para Windows que permite **monitorear y gestionar recursos del sistema** de forma sencilla, similar al Administrador de Tareas, pero con una interfaz amigable y opciones rápidas para usuarios.
 
-El proyecto está desarrollado en **Python** usando **PyQt5** para la interfaz gráfica y **psutil** para la monitorización de procesos, memoria, CPU y discos.
+El proyecto está desarrollado en **Python 3.12** usando **PyQt5** para la interfaz gráfica y **psutil** para la monitorización de procesos, memoria, CPU y discos.
 
 ---
 
@@ -30,8 +30,8 @@ cd SystemManagerV1
 ### 2. Crear un entorno virtual (opcional pero recomendado)
 
 ```bash
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv
+.\.venv\Scripts\activate
 ```
 
 ### 4. Instalar dependencias
