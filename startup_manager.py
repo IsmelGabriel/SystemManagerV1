@@ -1,88 +1,76 @@
-"""Módulo para gestionar aplicaciones de inicio en Windows."""
+"""
+SystemManagerV1
+
+Autor: Ismel Gabriel
+Versión: 1.0
+Descripción: Pestaña para gestionar las aplicaciones
+que se inician automáticamente con Windows.
+"""
+
 import os
 import re
 import winreg
 import subprocess
-# pylint: disable=no-name-in-module
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QMenu, QAction, QMessageBox
+    QWidget,
+    QVBoxLayout,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QMenu,
+    QAction,
+    QMessageBox,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
-class StartupTab(QWidget):
-    """Pestaña de gestión de aplicaciones de inicio."""
+
+class StartupWorker(QThread):
+    """Hilo secundario para cargar la lista de inicio sin bloquear la UI."""
+
+    items_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
-
         self.run_paths = [
             (
                 winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run", "Usuario actual"),
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                "Usuario actual",
+            ),
             (
                 winreg.HKEY_LOCAL_MACHINE,
-                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", "Todos los usuarios"),
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                "Todos los usuarios",
+            ),
         ]
         self.approved_path = [
             r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
-            ]
+        ]
         self.startup_folders = [
-            os.path.join(os.environ["APPDATA"],
-                        r"Microsoft\Windows\Start Menu\Programs\Startup"
-                        ),
-            os.path.join(os.environ["ProgramData"],
-                        r"Microsoft\Windows\Start Menu\Programs\Startup"
-                        )
+            os.path.join(
+                os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup"
+            ),
+            os.path.join(
+                os.environ["ProgramData"],
+                r"Microsoft\Windows\Start Menu\Programs\Startup",
+            ),
         ]
 
-        # Layout principal
-        layout = QVBoxLayout(self)
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Nombre", "Ruta", "Ubicación", "Estado", "Impacto"])
-        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tree.customContextMenuRequested.connect(self.open_context_menu)
-        layout.addWidget(self.tree)
-
-        self.refresh()
-
-    def _set_registry_value(self, root, path, name, value, regtype=winreg.REG_BINARY):
-        """Establece un valor en el registro de Windows."""
-        try:
-            with winreg.OpenKey(root, path, 0, winreg.KEY_SET_VALUE) as key:
-                winreg.SetValueEx(key, name, 0, regtype, value)
-                return True
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo modificar el registro: {e}")
-            return False
-
     def get_startup_state(self, name, root):
-        """
-        Obtiene el estado de inicio (habilitado/deshabilitado)
-        de una aplicación.
-        """
+        """Obtiene el estado de inicio (habilitado/deshabilitado)."""
         try:
             with winreg.OpenKey(root, self.approved_path[0], 0, winreg.KEY_READ) as key:
                 value, _ = winreg.QueryValueEx(key, name)
-                if value[0] == 2:   # Habilitado
+                if value[0] == 2:
                     return True
-                elif value[0] == 3: # Deshabilitado
+                elif value[0] == 3:
                     return False
                 else:
                     return True
         except FileNotFoundError:
             return True
-        # pylint: disable=broad-exception-caught
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo leer el estado de inicio: {e}")
+        except Exception:
             return True
-
-
-    def set_startup_state(self, name, root, enable=True):
-        """
-        Establece el estado de inicio (habilitado/deshabilitado)
-        """
-        data = (b"\x02\x00\x00\x00\x00\x00\x00\x00" if enable else b"\x03\x00\x00\x00\x00\x00\x00\x00")
-        return self._set_registry_value(root, self.approved_path[0], name, data, winreg.REG_BINARY)
 
     def estimate_startup_impact(self, path):
         """Estima el impacto en el inicio según el tamaño del ejecutable."""
@@ -103,7 +91,11 @@ class StartupTab(QWidget):
         try:
             output = subprocess.check_output(
                 ["schtasks", "/query", "/fo", "CSV", "/v"],
-                shell=True, text=True, encoding="utf-8", errors="ignore"
+                shell=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
             lines = output.splitlines()
             if not lines:
@@ -117,20 +109,22 @@ class StartupTab(QWidget):
                 row = dict(zip(headers, cols))
 
                 if "Logon" in row.get("Schedule Type", ""):
-                    tasks.append({
-                        "name": row.get("TaskName", ""),
-                        "path": row.get("Task To Run", ""),
-                        "location": "Tarea Programada",
-                        "enabled": row.get("Status", "").lower() == "ready",
-                        "impact": self.estimate_startup_impact(row.get("Task To Run", "")),
-                        "root": None
-                    })
-        # pylint: disable=broad-exception-caught
+                    tasks.append(
+                        {
+                            "name": row.get("TaskName", ""),
+                            "path": row.get("Task To Run", ""),
+                            "location": "Tarea Programada",
+                            "enabled": row.get("Status", "").lower() == "ready",
+                            "impact": self.estimate_startup_impact(
+                                row.get("Task To Run", "")
+                            ),
+                            "root": None,
+                        }
+                    )
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error",
+            self.error_occurred.emit(
                 f"No se pudieron obtener las tareas programadas: {e}"
-                )
+            )
         return tasks
 
     @staticmethod
@@ -139,75 +133,111 @@ class StartupTab(QWidget):
         try:
             if not command:
                 return ""
-            # Quitar comillas
             cmd = command.strip().strip('"')
-
-            # Expandir variables de entorno (%windir%, %appdata%, etc.)
             cmd = os.path.expandvars(cmd)
-
-            # Si tiene parámetros, quedarnos solo con la parte del .exe
-            match = re.match(r'^(.*?\.exe)', cmd, re.IGNORECASE)
+            match = re.match(r"^(.*?\.exe)", cmd, re.IGNORECASE)
             if match:
                 return match.group(1)
             return cmd
-        # pylint: disable=broad-exception-caught
         except Exception:
             return command
 
-    def list_items(self):
-        """
-        Lista todos los ítems de inicio
-        (registro, carpetas, tareas programadas).
-        """
+    def run(self):
+        """Ejecución del hilo para listar los elementos."""
         items = []
 
-        # Registro
         for root, path, location in self.run_paths:
             try:
                 with winreg.OpenKey(root, path) as key:
                     i = 0
                     while True:
                         try:
-                            # Get registry value first
                             name, value, _ = winreg.EnumValue(key, i)
-                            # Then extract path and name
                             exe_path = os.path.expandvars(self.extract_exe_path(value))
                             exe_name = os.path.basename(exe_path) if exe_path else name
                             state = self.get_startup_state(name, root)
 
-                            items.append({
-                                "name": exe_name if exe_name else os.path.basename(name),
-                                "path": exe_path,
-                                "location": location,
-                                "enabled": state,
-                                "impact": self.estimate_startup_impact(exe_path),
-                                "root": root
-                            })
+                            items.append(
+                                {
+                                    "name": (
+                                        exe_name if exe_name else os.path.basename(name)
+                                    ),
+                                    "path": exe_path,
+                                    "location": location,
+                                    "enabled": state,
+                                    "impact": self.estimate_startup_impact(exe_path),
+                                    "root": root,
+                                }
+                            )
                             i += 1
                         except OSError:
                             break
             except FileNotFoundError:
                 continue
 
-        # Carpetas Startup
         for folder in self.startup_folders:
             if os.path.exists(folder):
                 for f in os.listdir(folder):
                     full_path = os.path.join(folder, f)
-                    items.append({
-                        "name": f,
-                        "path": full_path,
-                        "location": "Carpeta Startup",
-                        "enabled": True,
-                        "impact": self.estimate_startup_impact(full_path),
-                        "root": None
-                    })
+                    items.append(
+                        {
+                            "name": f,
+                            "path": full_path,
+                            "location": "Carpeta Startup",
+                            "enabled": True,
+                            "impact": self.estimate_startup_impact(full_path),
+                            "root": None,
+                        }
+                    )
 
-        # Tareas programadas
         items.extend(self.get_scheduled_tasks())
-        return items
 
-    def enable(self, name, path, location, root):
+        self.items_loaded.emit(items)
+
+
+class StartupTab(QWidget):
+    """Pestaña de gestión de aplicaciones de inicio."""
+
+    def __init__(self):
+        super().__init__()
+
+        layout = QVBoxLayout(self)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Nombre", "Ruta", "Ubicación", "Estado", "Impacto"])
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self.open_context_menu)
+        layout.addWidget(self.tree)
+
+        self.worker = None
+        self.refresh()
+
+    def _set_registry_value(self, root, path, name, value, regtype=winreg.REG_BINARY):
+        """Establece un valor en el registro de Windows."""
+        try:
+            with winreg.OpenKey(root, path, 0, winreg.KEY_SET_VALUE) as key:
+                winreg.SetValueEx(key, name, 0, regtype, value)
+                return True
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"No se pudo modificar el registro: {e}"
+            )
+            return False
+
+    def set_startup_state(self, name, root, enable=True):
+        """Establece el estado de inicio (habilitado/deshabilitado)."""
+        approved_path = (
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+        )
+        data = (
+            b"\x02\x00\x00\x00\x00\x00\x00\x00"
+            if enable
+            else b"\x03\x00\x00\x00\x00\x00\x00\x00"
+        )
+        return self._set_registry_value(
+            root, approved_path, name, data, winreg.REG_BINARY
+        )
+
+    def enable_startup(self, name, path, location, root):
         """Habilita una aplicación de inicio."""
         if location == "Usuario actual":
             run_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -219,24 +249,45 @@ class StartupTab(QWidget):
         self.set_startup_state(name, root, True)
         self.refresh()
 
-    def disable(self, name, location, root):
+    def disable_startup(self, name, location, root):
         """Deshabilita una aplicación de inicio."""
         if location in ["Usuario actual", "Todos los usuarios"]:
             self.set_startup_state(name, root, False)
         self.refresh()
 
     def refresh(self):
-        """Refresca la lista de ítems de inicio."""
+        """Inicia el worker para cargar los ítems sin bloquear la UI."""
         self.tree.clear()
-        for item in self.list_items():
-            row = QTreeWidgetItem([
-                item["name"],
-                item["path"],
-                item["location"],
-                "Habilitado" if item["enabled"] else "Deshabilitado"
-            ])
-            row.setData(0, Qt.ItemDataRole.UserRole, item)  # guardar datos completos
+
+        loading_item = QTreeWidgetItem(
+            ["Cargando aplicaciones de inicio...", "", "", "", ""]
+        )
+        self.tree.addTopLevelItem(loading_item)
+
+        self.worker = StartupWorker()
+        self.worker.items_loaded.connect(self.populate_tree)
+        self.worker.error_occurred.connect(self.show_error)
+        self.worker.start()
+
+    def populate_tree(self, items):
+        """Rellena el QTreeWidget con los datos obtenidos por el worker."""
+        self.tree.clear()
+        for item in items:
+            row = QTreeWidgetItem(
+                [
+                    item["name"],
+                    item["path"],
+                    item["location"],
+                    "Habilitado" if item["enabled"] else "Deshabilitado",
+                    item["impact"],
+                ]
+            )
+            row.setData(0, Qt.ItemDataRole.UserRole, item)
             self.tree.addTopLevelItem(row)
+
+    def show_error(self, message):
+        """Muestra un mensaje de error si el worker falla en algo."""
+        QMessageBox.warning(self, "Advertencia", message)
 
     def open_context_menu(self, pos):
         """Abre el menú contextual para un ítem de inicio."""
@@ -245,28 +296,35 @@ class StartupTab(QWidget):
             return
 
         data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
         menu = QMenu(self)
 
-        # Acción abrir ubicación
         if os.path.exists(data["path"]):
             open_action = QAction("Abrir ubicación", self)
+
             def open_location():
-                subprocess.Popen(['explorer', f'/select,"{data["path"]}"'])
+                subprocess.Popen(["explorer", f'/select,"{data["path"]}"'])
+
             open_action.triggered.connect(open_location)
             menu.addAction(open_action)
 
-        # Acción habilitar/deshabilitar
         if data["location"] in ["Usuario actual", "Todos los usuarios"]:
             if data["enabled"]:
                 toggle_action = QAction("Deshabilitar", self)
                 toggle_action.triggered.connect(
-                    lambda: self.disable(data["name"], data["location"], data["root"])
+                    lambda: self.disable_startup(
+                        data["name"], data["location"], data["root"]
                     )
+                )
             else:
                 toggle_action = QAction("Habilitar", self)
                 toggle_action.triggered.connect(
-                    lambda: self.enable(data["name"], data["path"], data["location"], data["root"])
+                    lambda: self.enable_startup(
+                        data["name"], data["path"], data["location"], data["root"]
                     )
+                )
             menu.addAction(toggle_action)
 
         viewport = self.tree.viewport()

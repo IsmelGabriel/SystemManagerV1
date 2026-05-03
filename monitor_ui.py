@@ -1,142 +1,187 @@
-"""Interfaz flotante de monitor de sistema."""
-import tkinter as tk
-from tkinter import messagebox
-import threading
-import time
-import subprocess
+"""
+SystemManagerV1
+
+Autor: Ismel Gabriel
+Versión: 1.0
+Descripción: Interfaz flotante translúcida para visualizar
+en tiempo real el uso de CPU y RAM.
+"""
+
+import sys
 import psutil
+import subprocess
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QLabel,
+    QHBoxLayout,
+    QMenu,
+    QMessageBox,
+)
+from PyQt5.QtCore import QTimer, Qt, QPoint
 from system_utils.memory_cleaner import trim_working_set_all
 
-def exit_app():
-    """Cierra el UI flotante."""
-    root.destroy()
 
-def right_click(event):
-    """Muestra el menú contextual al hacer clic derecho."""
-    menu = tk.Menu(root, tearoff=0)
-    menu.add_command(label="Limpiar RAM", command=limpiar_memoria)
-    menu.add_command(label="Limpiar papelera", command=limpiar_papelera)
-    menu.add_command(label="Cerrar monitor", command=exit_app)
-    if root.attributes("-topmost"):
-        menu.add_command(label="Llevar atras", command=topmost_toggle)
-    else:
-        menu.add_command(label="Llevar adelante", command=topmost_toggle)
-    menu.tk_popup(event.x_root, event.y_root)
+class FloatingMonitor(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowOpacity(0.9)
+        self.resize(190, 32)
+        self.move(20, 20)
 
-def move_window(event):
-    """Mueve la ventana al arrastrarla."""
-    root.geometry(f'+{event.x_root}+{event.y_root}')
+        self.setStyleSheet(
+            """
+            QWidget {
+                background-color: rgba(24, 24, 27, 220);
+                border: 1px solid rgba(255, 255, 255, 30);
+                border-radius: 6px;
+            }
+            QLabel {
+                background-color: transparent;
+                border: none;
+                color: #e4e4e7;
+                font-family: 'Segoe UI', 'San Francisco', sans-serif;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 0px 4px;
+            }
+            """
+        )
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 4, 10, 4)
 
-def topmost_toggle():
-    """Alterna el estado de 'siempre encima' de la ventana."""
-    root.attributes("-topmost", not root.attributes("-topmost"))
+        self.drag_handle = QLabel("⋮")
+        self.drag_handle.setStyleSheet("color: rgba(255,255,255,100); font-size: 14px;")
 
-root = tk.Tk()
-root.title("System Monitor")
-root.overrideredirect(True)  # sin barra de título
-root.attributes("-topmost", False)  # siempre encima
-root.attributes("-alpha", 0.8)  # transparencia
-root.geometry("150x20")
-root.configure(bg="#0ab1ff")
+        self.cpu_label = QLabel("CPU: 0.0%")
+        self.ram_label = QLabel("RAM: 0.0%")
 
-# --- Etiquetas dinámicas ---
-cpu_label = tk.Label(
-    root, text="CPU: 0%", fg="red", bg="#0ab1ff",
-    anchor="w", font=("Consolas", 8)
-)
-cpu_label.pack(fill="x", pady=2, side="left")
+        layout.addWidget(self.drag_handle)
+        layout.addWidget(self.cpu_label)
+        layout.addStretch()
+        layout.addWidget(self.ram_label)
 
-ram_label = tk.Label(
-    root, text="RAM: 0%", fg="red", bg="#0ab1ff",
-    anchor="w", font=("Consolas", 8))
-ram_label.pack(fill="x", pady=2, side="right")
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_labels)
+        self.timer.start(1000)
 
-# --- Eventos de arrastre y clic derecho ---
-root.bind("<B1-Motion>", move_window)
-root.bind("<Button-3>", right_click)
+        self._old_pos = None
 
-# --- Botón limpiar ---
-def limpiar_memoria():
-    """Limpia la memoria RAM y muestra un mensaje con el resultado."""
-
-    # RAM usada antes
-    before = psutil.virtual_memory().used
-
-    # Ejecuta la limpieza
-    trim_working_set_all()
-
-    # RAM usada después
-    after = psutil.virtual_memory().used
-
-    # Calcular diferencia
-    freed = before - after
-    if freed > 0:
-        freed_mb = freed / (1024 * 1024)
-        msg = f"Se liberaron {freed_mb:.2f} MB de memoria."
-    else:
-        msg = "No se liberó memoria."
-
-    messagebox.showinfo("Memory Cleaner", msg)
-
-
-def actualizar_labels():
-    """Función de actualización."""
-    while True:
-        cpu = psutil.cpu_percent(interval=1)
+    def update_labels(self):
+        cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory().percent
-        # disk = psutil.disk_usage('/').percent
-
-        cpu_label.config(text=f"CPU: {cpu:.1f}%")
-        ram_label.config(text=f"RAM: {ram:.1f}%")
-        # activity_label.config(text=f"Almacenamiento: {disk:.1f}%")
-
-        time.sleep(1)
-
-def limpiar_papelera():
-    """Vacía la papelera de reciclaje desde el monitor"""
-    try:
-        # Verificar si hay elementos
-        ps_script = r"""
-        $shell = New-Object -ComObject Shell.Application
-        $recycleBin = $shell.NameSpace(10)
-        $itemCount = $recycleBin.Items().Count
-        Write-Output $itemCount
-        """
-        # pylint: disable=subprocess-run-check
-        result = subprocess.run(
-            [
-                "powershell", "-ExecutionPolicy", "Bypass",
-                "-Command", ps_script
-            ],
-            capture_output=True, text=True, encoding="utf-8"
+        self.cpu_label.setText(
+            f'CPU: <span style="color: #4ade80; font-family: Consolas;">{cpu:.1f}%</span>'
+        )
+        self.ram_label.setText(
+            f'RAM: <span style="color: #38bdf8; font-family: Consolas;">{ram:.1f}%</span>'
         )
 
-        item_count = result.stdout.strip()
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._old_pos = event.globalPos()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.show_context_menu(event.globalPos())
 
-        if item_count == "0":
-            messagebox.showinfo(
-                "Papelera", "La papelera de reciclaje ya está vacía."
+    def mouseMoveEvent(self, event):
+        if self._old_pos is not None:
+            delta = QPoint(event.globalPos() - self._old_pos)
+            self.move(self.x() + delta.x(), self.y() + delta.y())
+            self._old_pos = event.globalPos()
+
+    def mouseReleaseEvent(self, event):
+        self._old_pos = None
+
+    def show_context_menu(self, pos):
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "background-color: white; color: black; border-radius: 0px; padding: 2px;"
+        )
+
+        limpiar_ram_action = menu.addAction("Limpiar RAM")
+        limpiar_papelera_action = menu.addAction("Limpiar papelera")
+        toggle_topmost_action = menu.addAction(
+            "Desanclar de arriba"
+            if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint
+            else "Anclar arriba"
+        )
+        cerrar_action = menu.addAction("Cerrar monitor")
+
+        action = menu.exec_(pos)
+
+        if action == limpiar_ram_action:
+            self.limpiar_memoria()
+        elif action == limpiar_papelera_action:
+            self.limpiar_papelera()
+        elif action == toggle_topmost_action:
+            self.toggle_topmost()
+        elif action == cerrar_action:
+            self.close()
+
+    def limpiar_memoria(self):
+        before = psutil.virtual_memory().used
+        trim_working_set_all()
+        after = psutil.virtual_memory().used
+        freed = before - after
+        if freed > 0:
+            msg = f"Se liberaron {freed / (1024 * 1024):.2f} MB de memoria."
+        else:
+            msg = "No se liberó memoria."
+        QMessageBox.information(self, "Memory Cleaner", msg)
+
+    def limpiar_papelera(self):
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    "(New-Object -ComObject Shell.Application).NameSpace(10).Items().Count",
+                ],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
-            return
+            item_count = result.stdout.strip()
 
-        # Vaciar la papelera
-        subprocess.run(
-            [
-                "powershell", "-ExecutionPolicy", "Bypass", "-Command",
-                "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue"
-            ],
-            capture_output=True, text=True, encoding="utf-8"
-        )
+            if item_count == "0":
+                QMessageBox.information(self, "Papelera", "La papelera ya está vacía.")
+                return
 
-        messagebox.showinfo(
-            "Papelera",
-            f"Papelera vaciada correctamente ({item_count} elementos eliminados)."
-        )
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
-        messagebox.showerror("Error", f"Error vaciando papelera: {e}")
+            subprocess.run(
+                [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue",
+                ],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            QMessageBox.information(
+                self, "Papelera", f"Vaciada correctamente ({item_count} elementos)."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error vaciando papelera: {e}")
 
-# --- Hilo aparte para refrescar ---
-threading.Thread(target=actualizar_labels, daemon=True).start()
+    def toggle_topmost(self):
+        flags = self.windowFlags()
+        if flags & Qt.WindowType.WindowStaysOnTopHint:
+            self.setWindowFlags(flags & ~Qt.WindowType.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(flags | Qt.WindowType.WindowStaysOnTopHint)
+        self.show()
 
-root.mainloop()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    monitor = FloatingMonitor()
+    monitor.show()
+    sys.exit(app.exec_())
