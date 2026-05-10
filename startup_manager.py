@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (
     QMenu,
     QAction,
     QMessageBox,
+    QPushButton,
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
@@ -56,21 +57,40 @@ class StartupWorker(QThread):
             ),
         ]
 
-    def get_startup_state(self, name, root):
-        """Obtiene el estado de inicio (habilitado/deshabilitado)."""
-        try:
-            with winreg.OpenKey(root, self.approved_path[0], 0, winreg.KEY_READ) as key:
-                value, _ = winreg.QueryValueEx(key, name)
-                if value[0] == 2:
-                    return True
-                elif value[0] == 3:
-                    return False
-                else:
-                    return True
-        except FileNotFoundError:
-            return True
-        except Exception:
-            return True
+    def get_startup_state(self, name, root=None):
+        """Obtiene el estado de inicio buscando exhaustivamente sin distinguir mayúsculas."""
+        approved_paths = [
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run",
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32",
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\RunMachine",
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder",
+        ]
+
+        roots = [winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE]
+        name_lower = name.lower()
+
+        for r in roots:
+            for path in approved_paths:
+                for access in [
+                    winreg.KEY_READ,
+                    winreg.KEY_READ | winreg.KEY_WOW64_32KEY,
+                ]:
+                    try:
+                        with winreg.OpenKey(r, path, 0, access) as key:
+                            i = 0
+                            while True:
+                                try:
+                                    v_name, value, _ = winreg.EnumValue(key, i)
+                                    if v_name.lower() == name_lower:
+                                        if value[0] % 2 != 0:
+                                            return False
+                                        return True
+                                    i += 1
+                                except OSError:
+                                    break
+                    except Exception:
+                        continue
+        return True
 
     def estimate_startup_impact(self, path):
         """Estima el impacto en el inicio según el tamaño del ejecutable."""
@@ -112,6 +132,7 @@ class StartupWorker(QThread):
                     tasks.append(
                         {
                             "name": row.get("TaskName", ""),
+                            "reg_name": row.get("TaskName", ""),
                             "path": row.get("Task To Run", ""),
                             "location": "Tarea Programada",
                             "enabled": row.get("Status", "").lower() == "ready",
@@ -130,15 +151,21 @@ class StartupWorker(QThread):
     @staticmethod
     def extract_exe_path(command):
         """Extrae la ruta del ejecutable de un comando."""
+        if not command:
+            return ""
+
         try:
-            if not command:
-                return ""
-            cmd = command.strip().strip('"')
-            cmd = os.path.expandvars(cmd)
-            match = re.match(r"^(.*?\.exe)", cmd, re.IGNORECASE)
-            if match:
-                return match.group(1)
-            return cmd
+            cmd = os.path.expandvars(command.strip())
+
+            match_quotes = re.search(r'^"([^"]+\.exe)"', cmd, re.IGNORECASE)
+            if match_quotes:
+                return match_quotes.group(1)
+
+            match_no_quotes = re.match(r"^(.*?\.exe)", cmd, re.IGNORECASE)
+            if match_no_quotes:
+                return match_no_quotes.group(1).strip()
+
+            return cmd.strip('"')
         except Exception:
             return command
 
@@ -162,6 +189,7 @@ class StartupWorker(QThread):
                                     "name": (
                                         exe_name if exe_name else os.path.basename(name)
                                     ),
+                                    "reg_name": name,
                                     "path": exe_path,
                                     "location": location,
                                     "enabled": state,
@@ -182,6 +210,7 @@ class StartupWorker(QThread):
                     items.append(
                         {
                             "name": f,
+                            "reg_name": f,
                             "path": full_path,
                             "location": "Carpeta Startup",
                             "enabled": True,
@@ -202,8 +231,14 @@ class StartupTab(QWidget):
         super().__init__()
 
         layout = QVBoxLayout(self)
+
+        self.btn_refresh = QPushButton("Actualizar Lista")
+        self.btn_refresh.clicked.connect(self.refresh)
+        layout.addWidget(self.btn_refresh)
+
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Nombre", "Ruta", "Ubicación", "Estado", "Impacto"])
+        self.tree.setSortingEnabled(True)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
         layout.addWidget(self.tree)
@@ -214,7 +249,7 @@ class StartupTab(QWidget):
     def _set_registry_value(self, root, path, name, value, regtype=winreg.REG_BINARY):
         """Establece un valor en el registro de Windows."""
         try:
-            with winreg.OpenKey(root, path, 0, winreg.KEY_SET_VALUE) as key:
+            with winreg.CreateKey(root, path) as key:
                 winreg.SetValueEx(key, name, 0, regtype, value)
                 return True
         except Exception as e:
@@ -305,7 +340,8 @@ class StartupTab(QWidget):
             open_action = QAction("Abrir ubicación", self)
 
             def open_location():
-                subprocess.Popen(["explorer", f'/select,"{data["path"]}"'])
+                norm_path = os.path.normpath(data["path"])
+                subprocess.Popen(f'explorer /select,"{norm_path}"')
 
             open_action.triggered.connect(open_location)
             menu.addAction(open_action)
@@ -314,15 +350,18 @@ class StartupTab(QWidget):
             if data["enabled"]:
                 toggle_action = QAction("Deshabilitar", self)
                 toggle_action.triggered.connect(
-                    lambda: self.disable_startup(
-                        data["name"], data["location"], data["root"]
+                    lambda _=False, d=data: self.disable_startup(
+                        d.get("reg_name", d["name"]), d["location"], d["root"]
                     )
                 )
             else:
                 toggle_action = QAction("Habilitar", self)
                 toggle_action.triggered.connect(
-                    lambda: self.enable_startup(
-                        data["name"], data["path"], data["location"], data["root"]
+                    lambda _=False, d=data: self.enable_startup(
+                        d.get("reg_name", d["name"]),
+                        d["path"],
+                        d["location"],
+                        d["root"],
                     )
                 )
             menu.addAction(toggle_action)
