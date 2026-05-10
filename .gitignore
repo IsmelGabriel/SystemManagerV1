@@ -1,4 +1,4 @@
-__pycache__/
+*__pycache__/*
 *.pyc
 *.pyo
 *.pyd
@@ -7,4 +7,3 @@ env/
 .vscode/
 test.py
 virtual_memory_config.json
-
