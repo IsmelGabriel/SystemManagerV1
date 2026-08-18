@@ -39,9 +39,10 @@ class TempCleanerWorker(QThread):
     finished_signal = pyqtSignal()
 
     def run(self):
+        system_root = os.environ.get("SystemRoot", r"C:\Windows")
         temp_dirs = [
             tempfile.gettempdir(),
-            r"C:\Windows\Temp",
+            os.path.join(system_root, "Temp"),
             os.path.expandvars(r"%LocalAppData%\Temp"),
             os.path.expandvars(r"%AppData%\Temp"),
         ]
@@ -73,48 +74,22 @@ class TempCleanerWorker(QThread):
 
 
 class RecycleBinCleanerWorker(QThread):
-    """Hilo para vaciar la papelera de reciclaje."""
+    """Hilo para vaciar la papelera de reciclaje usando la API nativa."""
 
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal()
 
     def run(self):
+        import ctypes
         try:
-            ps_script = r"""
-            $shell = New-Object -ComObject Shell.Application
-            $recycleBin = $shell.NameSpace(10)
-            $itemCount = $recycleBin.Items().Count
-            Write-Output $itemCount
-            """
-            result = subprocess.run(
-                ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
+            # Flags: 1 (Sin confirmación), 2 (Sin progreso), 4 (Sin sonido)
+            flags = 1 | 2 | 4
+            result = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, flags)
 
-            item_count = result.stdout.strip()
-
-            if item_count == "0":
-                self.log_signal.emit("La papelera de reciclaje ya está vacía.")
+            if result == 0:
+                self.log_signal.emit("Papelera de reciclaje vaciada correctamente.")
             else:
-                subprocess.run(
-                    [
-                        "powershell",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-Command",
-                        "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                )
-                self.log_signal.emit(
-                    f"Papelera de reciclaje vaciada correctamente ({item_count} elementos eliminados)."
-                )
+                self.log_signal.emit("La papelera ya estaba vacía.")
         except Exception as e:
             self.log_signal.emit(f"Error vaciando papelera: {e}")
 

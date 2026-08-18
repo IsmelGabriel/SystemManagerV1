@@ -136,38 +136,16 @@ class FloatingMonitor(QWidget):
         QMessageBox.information(self, "Memory Cleaner", msg)
 
     def limpiar_papelera(self):
+        import ctypes
         try:
-            result = subprocess.run(
-                [
-                    "powershell",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    "(New-Object -ComObject Shell.Application).NameSpace(10).Items().Count",
-                ],
-                capture_output=True,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
-            item_count = result.stdout.strip()
+            # Flags: 1 (Sin confirmación), 2 (Sin progreso), 4 (Sin sonido)
+            flags = 1 | 2 | 4
+            result = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, flags)
 
-            if item_count == "0":
-                QMessageBox.information(self, "Papelera", "La papelera ya está vacía.")
-                return
-
-            subprocess.run(
-                [
-                    "powershell",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    "Clear-RecycleBin -Force -Confirm:$false -ErrorAction SilentlyContinue",
-                ],
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
-            QMessageBox.information(
-                self, "Papelera", f"Vaciada correctamente ({item_count} elementos)."
-            )
+            if result == 0:
+                QMessageBox.information(self, "Papelera", "Papelera vaciada correctamente.")
+            else:
+                QMessageBox.information(self, "Papelera", "La papelera ya estaba vacía o no se pudo vaciar.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error vaciando papelera: {e}")
 

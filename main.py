@@ -9,9 +9,9 @@ verifica los privilegios de administrador.
 
 import sys
 import ctypes
-import subprocess
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from monitor_manager import MonitorWindow
+from monitor_ui import FloatingMonitor
 
 
 def run_as_admin():
@@ -32,19 +32,14 @@ def run_as_admin():
         sys.exit()
 
 
-def open_monitor_ui():
-    """Abre la interfaz flotante de monitor."""
-    try:
-        subprocess.Popen([sys.executable, "monitor_ui.py"])
-    except Exception as e:
-        print(f"Error al abrir monitor_ui.py: {e}")
-        QMessageBox.critical(None, "Error", "No se pudo abrir la interfaz")
-
-
 if __name__ == "__main__":
     run_as_admin()
-    open_monitor_ui()
     app = QApplication(sys.argv)
+
     window = MonitorWindow()
     window.show()
+
+    monitor = FloatingMonitor()
+    monitor.show()
+
     sys.exit(app.exec_())
